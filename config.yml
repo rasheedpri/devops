@@ -1,0 +1,61 @@
+---
+- hosts: server1
+  become: true
+
+  tasks:
+    - name: Install prerequisites
+      apt: name=aptitude update_cache=yes state=latest force_apt_get=yes
+      tags: install_apache
+
+    - name: Install Apache & MySql
+      apt: 
+        name: '{{ item }}'
+        state: present 
+      loop: ['apache2','mysql-server']
+      tags: install_apache
+
+    - name: Copy DB script to server
+      copy:
+        src: sqldb.sh
+        dest: /home/ubuntu
+        owner: root
+        group: root        
+        mode: 654
+      tags: create_db
+
+    - name: Run the bash script to create DB
+      shell: /home/ubuntu/sqldb.sh
+      args:
+        executable: /bin/bash
+      register: result
+      tags: create_db
+
+    - name: Clone Git repository
+      git:
+        repo: https://github.com/rasheedpri/node-mysql-crud-app.git
+        dest: /home/ubuntu/node-mysql-crud-app
+        version: main
+        update: no
+      tags: clone_repo
+
+    - name: Install npm
+      apt:
+        name: npm
+        state: present
+      tags: npm_init
+
+    - name: Install npm packages
+      npm:
+        name: "{{item}}"
+        path: /home/ubuntu/node-mysql-crud-app
+        state: present
+      loop: ['express', 'express-fileupload', 'body-parser', 'mysql', 'ejs', 'req-flash']
+      tags: npm_init
+
+    - name: Install nodemon globally
+      npm:
+        name: nodemon
+        global: yes
+        state: present
+      tags: npm_init
+
