@@ -4,46 +4,46 @@ resource "aws_key_pair" "sshkey" {
 }
 
 
-resource "aws_network_interface" "frontend" {
-  subnet_id   = aws_subnet.frontend_subnet.id
-  private_ips = ["10.10.0.6"]
+resource "aws_network_interface" "eni" {
+  count =3
+  subnet_id   = aws_subnet.subnet[count.index].id
+  private_ips = cidrhost("${var.subnet_cidr[count.index]}", 5)
+
+ }
+
+# resource "aws_eip" "pip" {
+#   vpc                       = true
+#   network_interface         = aws_network_interface.frontend.id
+#   associate_with_private_ip = "10.10.0.6"
+#   depends_on = [
+#     aws_instance.frontend
+#   ]
+# }
 
 
-}
 
-resource "aws_eip" "pip" {
-  vpc                       = true
-  network_interface         = aws_network_interface.frontend.id
-  associate_with_private_ip = "10.10.0.6"
-  depends_on = [
-    aws_instance.frontend
-  ]
-}
+# resource "aws_instance" "frontend" {
+#   ami           = "ami-04bad3c587fe60d89"
+#   instance_type = "t2.micro"
+#   key_name      = "ssh-key"
 
+#   network_interface {
+#     network_interface_id = aws_network_interface.frontend.id
+#     device_index         = 0
+#   }
 
+# }
 
-resource "aws_instance" "frontend" {
-  ami           = "ami-04bad3c587fe60d89"
-  instance_type = "t2.micro"
-  key_name      = "ssh-key"
+# # route table assosiation
 
-  network_interface {
-    network_interface_id = aws_network_interface.frontend.id
-    device_index         = 0
-  }
+# resource "aws_route_table_association" "rt" {
+#   subnet_id      = aws_subnet.frontend_subnet.id
+#   route_table_id = aws_route_table.rt.id
+# }
 
-}
+# # scurity group assosiation
 
-# route table assosiation
-
-resource "aws_route_table_association" "rt" {
-  subnet_id      = aws_subnet.frontend_subnet.id
-  route_table_id = aws_route_table.rt.id
-}
-
-# scurity group assosiation
-
-resource "aws_network_interface_sg_attachment" "sg_attachment" {
-  security_group_id    = aws_security_group.allow_inbound.id
-  network_interface_id = aws_instance.frontend.primary_network_interface_id
-}
+# resource "aws_network_interface_sg_attachment" "sg_attachment" {
+#   security_group_id    = aws_security_group.allow_inbound.id
+#   network_interface_id = aws_instance.frontend.primary_network_interface_id
+# }
