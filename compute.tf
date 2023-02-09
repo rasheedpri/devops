@@ -5,45 +5,63 @@ resource "aws_key_pair" "sshkey" {
 
 
 resource "aws_network_interface" "eni" {
-  count =3
+  count       = 3
   subnet_id   = aws_subnet.subnet[count.index].id
-  private_ips = cidrhost("${var.subnet_cidr[count.index]}", 5)
+  private_ips = [cidrhost(var.subnet_cidr[count.index], 5)]
 
- }
+  tags = {
+    Name = var.tag[count.index]
+  }
+}
 
-# resource "aws_eip" "pip" {
-#   vpc                       = true
-#   network_interface         = aws_network_interface.frontend.id
-#   associate_with_private_ip = "10.10.0.6"
-#   depends_on = [
-#     aws_instance.frontend
-#   ]
-# }
+resource "aws_eip" "pip" {
+  count                     = 2
+  vpc                       = true
+  network_interface         = aws_network_interface.eni[count.index].id
+  associate_with_private_ip = cidrhost(var.subnet_cidr[count.index], 5)
+  depends_on = [
+    aws_instance.ec2
+  ]
+
+}
 
 
 
-# resource "aws_instance" "frontend" {
-#   ami           = "ami-04bad3c587fe60d89"
-#   instance_type = "t2.micro"
-#   key_name      = "ssh-key"
+resource "aws_instance" "ec2" {
+  count         = 3
+  ami           = "ami-04bad3c587fe60d89"
+  instance_type = "t2.micro"
+  key_name      = "ssh-key"
 
-#   network_interface {
-#     network_interface_id = aws_network_interface.frontend.id
-#     device_index         = 0
-#   }
+  network_interface {
+    network_interface_id = aws_network_interface.eni[count.index].id
+    device_index         = 0
+  }
 
-# }
+  tags = {
+    Name = "${var.tag[count.index]}-server"
+  }
 
-# # route table assosiation
+}
 
-# resource "aws_route_table_association" "rt" {
-#   subnet_id      = aws_subnet.frontend_subnet.id
-#   route_table_id = aws_route_table.rt.id
-# }
+# route table assosiation
 
-# # scurity group assosiation
+resource "aws_route_table_association" "rt" {
+  count =2
+  subnet_id      = aws_subnet.subnet[count.index].id
+  route_table_id = aws_route_table.rt.id
+}
 
-# resource "aws_network_interface_sg_attachment" "sg_attachment" {
-#   security_group_id    = aws_security_group.allow_inbound.id
-#   network_interface_id = aws_instance.frontend.primary_network_interface_id
-# }
+# scurity group assosiation for jumphost
+
+resource "aws_network_interface_sg_attachment" "jumphost" {
+  security_group_id    = aws_security_group.jumphost_inbound.id
+  network_interface_id = aws_instance.ec2[0].primary_network_interface_id
+}
+
+# scurity group assosiation for jumphost
+
+resource "aws_network_interface_sg_attachment" "webserver" {
+  security_group_id    = aws_security_group.web_inbound.id
+  network_interface_id = aws_instance.ec2[1].primary_network_interface_id
+}
